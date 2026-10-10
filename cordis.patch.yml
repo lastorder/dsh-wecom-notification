@@ -1,0 +1,13 @@
+# 企业微信通知插件的 Host 行。
+#
+# 唯一的配置项 `url`（企业微信群机器人 Webhook 地址）推荐在
+# DSH 侧边栏「插件」→ dsh-wecom-notification 页面里填写并保存；
+# 也可以在 profile 的 cordis.patch.yml 里覆盖本行：
+#
+# - id: wecom-notification
+#   name: dsh-wecom-notification
+#   config:
+#     url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...
+- insert:
+    - id: wecom-notification
+      name: dsh-wecom-notification
