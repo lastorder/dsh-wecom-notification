@@ -1,0 +1,37 @@
+version: 2
+
+# Keeps the toolchain from silently drifting. Before this file existed, all
+# four GitHub Actions in release.yml had fallen two to three major versions
+# behind without anything reporting it.
+updates:
+  # GitHub Actions. Grouped into one PR: bumping them together is how they are
+  # actually reviewed and tested, and four separate PRs a month is noise.
+  #
+  # Note that softprops/action-gh-release is pinned to a commit SHA on purpose
+  # (see release.yml). Dependabot understands SHA pins and will propose the new
+  # SHA with its version comment updated, which is exactly the reviewable form
+  # this repository wants.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: 'ci'
+
+  # `@deepseek-ai/schemastery` is the only dependency, carried as BOTH a
+  # peerDependency (the copy DSH's own installation provides at runtime — see
+  # AGENTS.md's "Hard constraints") and a devDependency pinned to the exact
+  # same range (only so `pnpm install`/`pnpm test` have something to resolve
+  # locally and in CI). Dependabot only ever proposes a devDependency bump
+  # here; a human must widen the peerDependency range to match in the same
+  # PR, or the two silently drift apart.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: 'build'

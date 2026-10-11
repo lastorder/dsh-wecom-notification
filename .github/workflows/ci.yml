@@ -1,0 +1,58 @@
+name: CI
+
+# Runs the full self-verification flow on every push to the default branch and
+# every pull request.
+#
+# Before this existed, `pnpm run verify` ran ONLY from release.yml, i.e. only
+# once a version tag had already been pushed — so a break was discovered at the
+# moment of release rather than at the commit that caused it.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Read-only: nothing here publishes, tags, or writes to the repository. The
+# release workflow is the only thing that needs write scopes.
+permissions:
+  contents: read
+
+# A superseded run tells you nothing useful, so cancel it rather than paying
+# for it. Never cancel a push to the default branch, whose result is the
+# recorded state of the branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      # One version failing should not hide the result on the others.
+      fail-fast: false
+      matrix:
+        # This package is plain JS with no build step, so nothing here is
+        # version-sensitive the way a transpiler target would be; the matrix
+        # exists to catch a `node:test` or `fetch`/`AbortSignal.timeout`
+        # behavior change early. 24 is Active LTS and the primary target, 22
+        # is the lowest version `engines` allows, 26 is Current.
+        node-version: ['22', '24', '26']
+    name: verify (Node ${{ matrix.node-version }})
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (syntax check + test)
+        run: pnpm run verify

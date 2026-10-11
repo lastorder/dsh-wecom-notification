@@ -1,0 +1,117 @@
+name: Release
+
+# Triggered by pushing an annotated tag matching v*.*.* — the same tagging
+# convention this repository's release commits already follow
+# (`git tag -a vX.Y.Z -m "..."` after a `Release vX.Y.Z: ...` commit).
+# Nothing here changes how a release is decided or versioned; it only
+# automates the steps that used to happen by hand after the tag was pushed:
+# verify, stage the package on npm, and create a matching GitHub Release
+# marked as a pre-release until a maintainer approves the npm stage.
+#
+# This repository's npm Trusted Publisher is configured stage-only (no
+# "publish directly" permission), so `npm publish` from this workflow would
+# be rejected outright — only `npm stage publish` is accepted. A maintainer
+# must separately approve the staged version on npmjs.com (or via
+# `npm stage approve` locally, with 2FA) before it becomes installable. That
+# manual step is the deliberate point of staged publishing: even if this
+# workflow or the repository were compromised, an attacker could get a
+# malicious version as far as the stage queue, never onto the registry,
+# without a human's 2FA approval.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write # to create the GitHub Release and upload its tarball asset
+  id-token: write # to mint the OIDC token npm's Trusted Publishing exchanges for a stage credential
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (syntax check + test)
+        run: pnpm run verify
+
+      - name: Check the tag matches package.json's version
+        # A mismatch here means the tag was cut against the wrong commit, or
+        # package.json's version was never bumped — fail loudly before
+        # anything is staged, rather than staging a version nobody meant to
+        # ship.
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Stage on npm
+        # No token: this repository's npm package has a Trusted Publisher
+        # configured (npmjs.com package Settings -> Trusted Publisher ->
+        # GitHub Actions -> this repo + this exact workflow filename),
+        # restricted to stage-only. npm CLI >=11.15.0 (ensured by
+        # `npm install -g npm@latest` below) exchanges the OIDC token the
+        # `id-token: write` permission lets this job mint for a short-lived,
+        # workflow-scoped stage credential — nothing long-lived to leak,
+        # rotate, or store as a repository secret. This package has no build
+        # step (it ships plain JS as written), but `prepublishOnly`
+        # (`pnpm run verify`) still runs automatically as part of
+        # `npm stage publish`, so a broken tagged commit never reaches the
+        # stage queue even if something upstream of this step were skipped.
+        run: |
+          npm install -g npm@latest
+          npm stage publish
+
+      - name: Pack a tarball for the GitHub Release
+        run: npm pack
+
+      - name: Read the release notes from the tagged commit
+        # github.event.head_commit is not reliably populated for a tag push
+        # (it depends on how the tag was created), so read the message
+        # directly from git instead of trusting the event payload. Release
+        # commits are written as standalone release notes
+        # ("Release vX.Y.Z: <summary>" plus a prose body), so reusing that
+        # message verbatim is more useful than GitHub's auto-generated
+        # commit-list notes.
+        id: release_notes
+        run: |
+          {
+            echo 'body<<RELEASE_NOTES_EOF'
+            git log -1 --format=%B "$GITHUB_SHA"
+            echo ''
+            echo '---'
+            echo ''
+            echo '⚠️ Staged on npm, awaiting maintainer approval before it installs — see https://www.npmjs.com/package/dsh-wecom-notification?activeTab=versions or run `npm stage ls`.'
+            echo 'RELEASE_NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub Release (marked pre-release until npm approval)
+        # Pinned to a full commit SHA, not a tag. This is a third-party action
+        # running in a job that holds `contents: write` and `id-token: write`,
+        # so a moved tag on that repository would be a direct path into this
+        # project's release pipeline — the same threat model that motivated
+        # the stage-only npm Trusted Publisher, applied one layer out. The
+        # first-party actions/* and pnpm/* steps above stay on major tags.
+        # Update deliberately: read the diff, then repin.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          body: ${{ steps.release_notes.outputs.body }}
+          files: '*.tgz'
+          prerelease: true

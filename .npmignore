@@ -1,0 +1,6 @@
+# The `files` whitelist in package.json is the primary control for what gets
+# published; this is a backstop for repository-only material. Note that `files`
+# takes precedence over this file, and npm always includes README*.
+.github/
+*.tgz
+.DS_Store

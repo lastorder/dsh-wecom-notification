@@ -4,6 +4,7 @@
   "description": "Push a WeCom (企业微信) group-robot notification the instant DSH needs a human: permission approval, a question, a finished task, a blocked goal, or an error",
   "license": "MIT",
   "type": "module",
+  "packageManager": "pnpm@11.22.0",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
@@ -14,16 +15,28 @@
     "index.js",
     "client.js",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "AGENTS.md",
+    "LICENSE"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "verify": "node --check index.js && node --check client.js && pnpm run test",
+    "prepublishOnly": "pnpm run verify"
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.4"
   },
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lastorder/dsh-wecom-notification.git"
+  },
+  "homepage": "https://github.com/lastorder/dsh-wecom-notification#readme",
+  "bugs": {
+    "url": "https://github.com/lastorder/dsh-wecom-notification/issues"
   },
   "keywords": [
     "dsh",
