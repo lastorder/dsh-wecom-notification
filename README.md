@@ -10,6 +10,10 @@ DSH 停下来等你的那一刻，立刻往你的**企业微信群**推一条消
 | 目标被阻塞（`goal/changed`，`operation: block`） | 目标被阻塞 |
 | 执行出错（`agent/error`） | 执行出错 |
 
+手机上的企业微信收到的效果（v0.1.0 截图；从 v0.2.0 起，授权消息末尾的 `- bash` 换成了要执行的具体命令，见下文）：
+
+<p align="center"><img src="https://raw.githubusercontent.com/lastorder/dsh-wecom-notification/main/docs/images/wecom-message.jpg" alt="企业微信群里收到的「等待你的回答」和「需要授权」两条通知" width="360"></p>
+
 消息格式是企业微信的 `markdown` 消息：
 
 ```text
