@@ -41,7 +41,11 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-          cache: 'pnpm'
+          # No dependency cache in the job that holds `id-token: write`: a
+          # cache entry written by any other workflow run would otherwise be
+          # restored straight into the publish job (npm's trusted-publishing
+          # guide: "never use caching in release builds"). CI keeps its cache.
+          package-manager-cache: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
